@@ -1,10 +1,13 @@
 package com.you.music.ui
 
+import android.view.TextureView
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,11 +30,14 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,12 +45,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.session.MediaController
 import com.you.music.data.Likes
+import com.you.music.data.PlaybackMode
 import com.you.music.data.Song
 
 private fun fmtTime(ms: Long): String {
@@ -61,8 +72,23 @@ fun NowPlayingScreen(
     controller: MediaController?,
     onClose: () -> Unit
 ) {
+    val ctx = LocalContext.current
     var showLyrics by remember { mutableStateOf(false) }
     BackHandler(enabled = showLyrics) { showLyrics = false }
+
+    val videoMode by PlaybackMode.video.collectAsState()
+
+    // Video na mile to wapas Song mode me
+    LaunchedEffect(state.error) {
+        if (state.error != null && videoMode) {
+            PlaybackMode.set(controller, false)
+            Toast.makeText(
+                ctx,
+                "Is gaane ka video nahi mila, Song mode me chala diya",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
     val progress =
         if (state.duration > 0) (state.position.toFloat() / state.duration).coerceIn(0f, 1f) else 0f
@@ -85,7 +111,18 @@ fun NowPlayingScreen(
                 Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Close")
             }
             Spacer(Modifier.weight(1f))
-            Text("Now playing", style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !videoMode,
+                    onClick = { PlaybackMode.set(controller, false) },
+                    label = { Text("Song") }
+                )
+                FilterChip(
+                    selected = videoMode,
+                    onClick = { PlaybackMode.set(controller, true) },
+                    label = { Text("Video") }
+                )
+            }
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { showLyrics = !showLyrics }) {
                 Icon(
@@ -98,16 +135,23 @@ fun NowPlayingScreen(
 
         Spacer(Modifier.size(16.dp))
 
-        if (showLyrics) {
-            LyricsView(
+        when {
+            showLyrics -> LyricsView(
                 state = state,
                 controller = controller,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             )
-        } else {
-            Art(
+
+            videoMode -> VideoArea(
+                controller = controller,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+            )
+
+            else -> Art(
                 state.artwork?.bigArt(),
                 Modifier
                     .fillMaxWidth()
@@ -237,5 +281,42 @@ fun NowPlayingScreen(
                 color = Color.Red
             )
         }
+    }
+}
+
+/** Video dikhane ki jagah. Video ke aspect ratio ke hisaab se size leta hai. */
+@Composable
+private fun VideoArea(controller: MediaController?, modifier: Modifier) {
+    var ratio by remember { mutableStateOf(16f / 9f) }
+
+    DisposableEffect(controller) {
+        if (controller == null) {
+            return@DisposableEffect onDispose { }
+        }
+        val applySize = { size: VideoSize ->
+            if (size.width > 0 && size.height > 0) {
+                ratio = size.width * size.pixelWidthHeightRatio / size.height
+            }
+        }
+        applySize(controller.videoSize)
+        val listener = object : Player.Listener {
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                applySize(videoSize)
+            }
+        }
+        controller.addListener(listener)
+        onDispose { controller.removeListener(listener) }
+    }
+
+    Box(modifier, contentAlignment = Alignment.Center) {
+        AndroidView(
+            factory = { context -> TextureView(context) },
+            update = { view -> controller?.setVideoTextureView(view) },
+            onRelease = { view -> controller?.clearVideoTextureView(view) },
+            modifier = Modifier
+                .aspectRatio(ratio, matchHeightConstraintsFirst = ratio < 1f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.Black)
+        )
     }
 }
