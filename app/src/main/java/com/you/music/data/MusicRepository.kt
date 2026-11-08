@@ -99,6 +99,16 @@ object MusicRepository {
             }
     }
 
+        /** Video + audio wali ek file (zyada se zyada 720p), warna sabse chhoti available */
+    suspend fun videoUrl(videoUrl: String): String = withContext(Dispatchers.IO) {
+        val info = StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
+        val candidates = info.videoStreams.filter {
+            !it.isVideoOnly && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP
+        }
+        val pick = candidates.filter { it.height in 1..720 }.maxByOrNull { it.height }
+            ?: candidates.minByOrNull { it.height }
+        pick?.content ?: error("Video stream nahi mila")
+    }
     suspend fun audioUrl(videoUrl: String): String = withContext(Dispatchers.IO) {
         val info = StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
         info.audioStreams
