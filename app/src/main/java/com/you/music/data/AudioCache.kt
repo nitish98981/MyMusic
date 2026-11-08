@@ -26,7 +26,7 @@ object AudioCache {
 
     private val db by lazy { StandaloneDatabaseProvider(app) }
 
-    /** Jo gaane chale hain: 512 MB, purane apne aap hat jate hain */
+    /** Jo gaane chale hain (audio + video): 512 MB, purane apne aap hat jate hain */
     val streamCache by lazy {
         SimpleCache(
             File(app.cacheDir, "stream"),
@@ -40,9 +40,23 @@ object AudioCache {
         SimpleCache(File(app.filesDir, "downloads"), NoOpCacheEvictor(), db)
     }
 
-    // Stream URL expire hota hai, isliye cache key gaane ka apna YouTube URL rakhte hain
+    /** URI me m=audio ya m=video ho to wahi, warna abhi ka PlaybackMode */
+    private fun wantsVideo(uri: Uri): Boolean {
+        val m = uri.getQueryParameter("m")
+        return if (m != null) m == "video" else PlaybackMode.video.value
+    }
+
+    // Stream URL expire hota hai, isliye cache key gaane ka apna YouTube URL rakhte hain.
+    // Video ka key alag ("video:" ke saath), taaki audio wale se na mile.
     private val keyFactory = CacheKeyFactory { spec ->
-        spec.key ?: spec.uri.getQueryParameter("u") ?: spec.uri.toString()
+        spec.key ?: run {
+            val u = spec.uri.getQueryParameter("u")
+            when {
+                u == null -> spec.uri.toString()
+                wantsVideo(spec.uri) -> "video:$u"
+                else -> u
+            }
+        }
     }
 
     private fun resolvingHttp(): DataSource.Factory {
@@ -56,7 +70,11 @@ object AudioCache {
                 val videoUrl = spec.uri.getQueryParameter("u")
                 if (spec.uri.scheme == "yt" && videoUrl != null) {
                     try {
-                        val real = runBlocking { MusicRepository.audioUrl(videoUrl) }
+                        val wantVideo = wantsVideo(spec.uri)
+                        val real = runBlocking {
+                            if (wantVideo) MusicRepository.videoUrl(videoUrl)
+                            else MusicRepository.audioUrl(videoUrl)
+                        }
                         spec.withUri(Uri.parse(real))
                     } catch (e: Exception) {
                         throw IOException(e.message ?: "resolve failed", e)
