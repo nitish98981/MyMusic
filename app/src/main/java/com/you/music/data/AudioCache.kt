@@ -40,19 +40,24 @@ object AudioCache {
         SimpleCache(File(app.filesDir, "downloads"), NoOpCacheEvictor(), db)
     }
 
-    /** URI me m=audio ya m=video ho to wahi, warna abhi ka PlaybackMode */
+    /**
+     * URI me m=audio / m=video / m=vo (video-only, HD) ho to wahi,
+     * warna abhi ka PlaybackMode.
+     */
     private fun wantsVideo(uri: Uri): Boolean {
         val m = uri.getQueryParameter("m")
         return if (m != null) m == "video" else PlaybackMode.video.value
     }
 
     // Stream URL expire hota hai, isliye cache key gaane ka apna YouTube URL rakhte hain.
-    // Video ka key alag ("video:" ke saath), taaki audio wale se na mile.
+    // Video / HD ke key alag, taaki audio wale se na mile.
     private val keyFactory = CacheKeyFactory { spec ->
         spec.key ?: run {
             val u = spec.uri.getQueryParameter("u")
             when {
                 u == null -> spec.uri.toString()
+                spec.uri.getQueryParameter("m") == "vo" ->
+                    "vo:" + spec.uri.getQueryParameter("q") + ":" + u
                 wantsVideo(spec.uri) -> "video:$u"
                 else -> u
             }
@@ -70,10 +75,15 @@ object AudioCache {
                 val videoUrl = spec.uri.getQueryParameter("u")
                 if (spec.uri.scheme == "yt" && videoUrl != null) {
                     try {
+                        val m = spec.uri.getQueryParameter("m")
                         val wantVideo = wantsVideo(spec.uri)
+                        val q = spec.uri.getQueryParameter("q")?.toIntOrNull() ?: 480
                         val real = runBlocking {
-                            if (wantVideo) MusicRepository.videoUrl(videoUrl)
-                            else MusicRepository.audioUrl(videoUrl)
+                            when {
+                                m == "vo" -> MusicRepository.videoOnlyUrl(videoUrl, q)
+                                wantVideo -> MusicRepository.videoUrl(videoUrl)
+                                else -> MusicRepository.audioUrl(videoUrl)
+                            }
                         }
                         spec.withUri(Uri.parse(real))
                     } catch (e: Exception) {
