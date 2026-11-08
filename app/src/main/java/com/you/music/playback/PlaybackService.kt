@@ -3,7 +3,6 @@ package com.you.music.playback
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.you.music.data.AudioCache
@@ -22,7 +21,9 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
 
         val player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(AudioCache.playbackFactory()))
+            .setMediaSourceFactory(
+                YtMediaSourceFactory(applicationContext, AudioCache.playbackFactory())
+            )
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
