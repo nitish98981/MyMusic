@@ -53,7 +53,7 @@ object Downloads {
         scope.launch {
             try {
                 val spec = DataSpec.Builder()
-                    .setUri(Uri.parse("yt://resolve?u=" + Uri.encode(song.url)))
+                                        .setUri(Uri.parse("yt://resolve?m=audio&u=" + Uri.encode(song.url)))
                     .build()
 
                 CacheWriter(
