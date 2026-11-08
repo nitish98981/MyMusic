@@ -5,13 +5,14 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.schabi.newpipe.extractor.MediaFormat
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
-import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.stream.StreamType
+import org.schabi.newpipe.extractor.stream.VideoStream
 
 data class Song(
     val title: String,
@@ -99,9 +100,18 @@ object MusicRepository {
             }
     }
 
-        /** Video + audio wali ek file (zyada se zyada 720p), warna sabse chhoti available */
+    suspend fun audioUrl(videoUrl: String): String = withContext(Dispatchers.IO) {
+        val info = StreamCache.info(videoUrl)
+        info.audioStreams
+            .filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
+            .maxByOrNull { it.averageBitrate }
+            ?.content
+            ?: error("Audio stream nahi mila")
+    }
+
+    /** Video + audio wali ek file (zyada se zyada 720p), warna sabse chhoti available. "Auto" quality. */
     suspend fun videoUrl(videoUrl: String): String = withContext(Dispatchers.IO) {
-        val info = StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
+        val info = StreamCache.info(videoUrl)
         val candidates = info.videoStreams.filter {
             !it.isVideoOnly && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP
         }
@@ -109,12 +119,34 @@ object MusicRepository {
             ?: candidates.minByOrNull { it.height }
         pick?.content ?: error("Video stream nahi mila")
     }
-    suspend fun audioUrl(videoUrl: String): String = withContext(Dispatchers.IO) {
-        val info = StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
-        info.audioStreams
-            .filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-            .maxByOrNull { it.averageBitrate }
-            ?.content
-            ?: error("Audio stream nahi mila")
+
+    /** Sirf H.264 (avc1) mp4 video-only files: ye har phone par chalti hain */
+    private fun h264VideoOnly(streams: List<VideoStream>): List<VideoStream> =
+        streams.filter {
+            it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP &&
+                it.format == MediaFormat.MPEG_4 &&
+                it.codec?.startsWith("avc1") == true
+        }
+
+    /** HD ke liye: bina awaaz ki video file, height <= maxHeight (audio alag se judti hai) */
+    suspend fun videoOnlyUrl(videoUrl: String, maxHeight: Int): String =
+        withContext(Dispatchers.IO) {
+            val info = StreamCache.info(videoUrl)
+            val pool = h264VideoOnly(info.videoOnlyStreams)
+            val pick = pool
+                .filter { it.height in 1..maxHeight }
+                .maxWithOrNull(compareBy<VideoStream>({ it.height }, { it.bitrate }))
+                ?: pool.minByOrNull { it.height }
+            pick?.content ?: error("HD video stream nahi mila")
+        }
+
+    /** Is video ke liye available HD heights, bade se chhote */
+    suspend fun videoHeights(videoUrl: String): List<Int> = withContext(Dispatchers.IO) {
+        val info = StreamCache.info(videoUrl)
+        h264VideoOnly(info.videoOnlyStreams)
+            .map { it.height }
+            .filter { it >= 144 }
+            .distinct()
+            .sortedDescending()
     }
 }
