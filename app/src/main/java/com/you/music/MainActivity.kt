@@ -28,6 +28,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.you.music.data.History
+import com.you.music.data.PlaybackMode
 import com.you.music.data.LinkResolver
 import com.you.music.data.Prefs
 import com.you.music.data.toMediaItem
@@ -202,6 +203,13 @@ class MainActivity : ComponentActivity() {
         window.navigationBarColor = bg
     }
 
+        override fun onStop() {
+        // App background me jaye ya screen lock ho to video band, sirf audio (data bachta hai)
+        if (PlaybackMode.video.value && !isChangingConfigurations) {
+            PlaybackMode.set(controllerState.value, false)
+        }
+        super.onStop()
+        }
     override fun onDestroy() {
         controllerFuture?.let { MediaController.releaseFuture(it) }
         super.onDestroy()
