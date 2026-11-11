@@ -134,7 +134,7 @@ fun NowPlayingScreen(
         }
         onDispose {
             if (fullscreen && activity != null) {
-                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                 WindowCompat.getInsetsController(activity.window, activity.window.decorView)
                     .show(WindowInsetsCompat.Type.systemBars())
             }
