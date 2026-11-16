@@ -148,6 +148,7 @@ fun MusicApp(
 
     // 0 = Video, 1 = Music, 2 = Profile
     var mainTab by remember { mutableIntStateOf(1) }
+        var profileSection by remember { mutableStateOf<String?>(null) }
 
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<Song>>(emptyList()) }
@@ -208,6 +209,7 @@ fun MusicApp(
     BackHandler(enabled = col != null && mainTab == 1) { collection = null }
     BackHandler(enabled = tab == 3 && openPlaylist != null && mainTab == 1) { openPlaylistId = null }
     BackHandler(enabled = searchActive && tab == 0 && mainTab == 1) { clearSearch() }
+        BackHandler(enabled = mainTab == 2 && profileSection != null) { profileSection = null }
     BackHandler(enabled = showSettings) { showSettings = false }
     BackHandler(enabled = showPlayer) { showPlayer = false }
 
@@ -280,14 +282,58 @@ fun MusicApp(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                } else if (mainTab == 2) {
-                    // PROFILE tab: placeholder (Step 2 me banega)
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "Profile tab - jaldi aayega",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                } else if (mainTab == 2) {
+                    val sec = profileSection
+                    if (sec == null) {
+                        ProfileScreen(
+                            recent = recent,
+                            downloaded = downloaded,
+                            liked = liked,
+                            onPlay = { list, index -> playList(list, index) },
+                            onSeeAll = { profileSection = it },
+                            onSettings = { showSettings = true }
                         )
+                    } else {
+                        val list = when (sec) {
+                            "recent" -> recent
+                            "liked" -> liked
+                            else -> downloaded
+                        }
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { profileSection = null }) {
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                            }
+                            Text(
+                                when (sec) {
+                                    "recent" -> "Recent"
+                                    "liked" -> "Liked"
+                                    else -> "Download"
+                                },
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                        }
+                        LazyColumn(Modifier.weight(1f)) {
+                            itemsIndexed(list) { index, song ->
+                                TrackItem(
+                                    song = song,
+                                    isDownloaded = downloaded.any { it.url == song.url },
+                                    progress = progressMap[song.url],
+                                    onClick = { playList(list, index) },
+                                    onPlayNext = { playNext(song) },
+                                    onAddToQueue = { addToQueue(song) },
+                                    onDownloadToggle = { Downloads.toggle(song) },
+                                    isLiked = liked.any { it.url == song.url },
+                                    onLikeToggle = { Likes.toggle(song) },
+                                    onAddToPlaylist = { addTarget = song },
+                                    onRemove = null
+                                )
+                            }
+                        }
                     }
                 } else {
 
