@@ -25,6 +25,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Button
@@ -32,6 +35,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -141,6 +146,9 @@ fun MusicApp(
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
 
+    // 0 = Video, 1 = Music, 2 = Profile
+    var mainTab by remember { mutableIntStateOf(1) }
+
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<Song>>(emptyList()) }
     var status by remember { mutableStateOf("") }
@@ -197,9 +205,9 @@ fun MusicApp(
         focus.clearFocus()
     }
 
-    BackHandler(enabled = col != null) { collection = null }
-    BackHandler(enabled = tab == 3 && openPlaylist != null) { openPlaylistId = null }
-    BackHandler(enabled = searchActive && tab == 0) { clearSearch() }
+    BackHandler(enabled = col != null && mainTab == 1) { collection = null }
+    BackHandler(enabled = tab == 3 && openPlaylist != null && mainTab == 1) { openPlaylistId = null }
+    BackHandler(enabled = searchActive && tab == 0 && mainTab == 1) { clearSearch() }
     BackHandler(enabled = showSettings) { showSettings = false }
     BackHandler(enabled = showPlayer) { showPlayer = false }
 
@@ -262,6 +270,26 @@ fun MusicApp(
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.weight(1f)) {
+
+                if (mainTab == 0) {
+                    // VIDEO tab: placeholder (Step 5 me banega)
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Video tab - jaldi aayega",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else if (mainTab == 2) {
+                    // PROFILE tab: placeholder (Step 2 me banega)
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Profile tab - jaldi aayega",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
 
                 Row(
                     Modifier
@@ -471,6 +499,8 @@ fun MusicApp(
                         }
                     }
                 }
+
+                }
             }
 
             if (state.hasMedia) {
@@ -478,7 +508,28 @@ fun MusicApp(
                     state = state,
                     onOpen = { showPlayer = true },
                     onToggle = toggle,
-                                        onNext = { controller?.seekToNextMediaItem() }
+                    onNext = { controller?.seekToNextMediaItem() }
+                )
+            }
+
+            NavigationBar {
+                NavigationBarItem(
+                    selected = mainTab == 0,
+                    onClick = { mainTab = 0 },
+                    icon = { Icon(Icons.Rounded.PlayArrow, contentDescription = "Video") },
+                    label = { Text("Video") }
+                )
+                NavigationBarItem(
+                    selected = mainTab == 1,
+                    onClick = { mainTab = 1 },
+                    icon = { Icon(Icons.Rounded.Home, contentDescription = "Music") },
+                    label = { Text("Music") }
+                )
+                NavigationBarItem(
+                    selected = mainTab == 2,
+                    onClick = { mainTab = 2 },
+                    icon = { Icon(Icons.Rounded.Person, contentDescription = "Profile") },
+                    label = { Text("Profile") }
                 )
             }
         }
