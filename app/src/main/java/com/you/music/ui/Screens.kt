@@ -292,12 +292,37 @@ fun MusicApp(
                 } else if (mainTab == 2) {
                     val sec = profileSection
                     if (sec == null) {
-                        ProfileScreen(
+                                                ProfileScreen(
                             recent = recent,
                             downloaded = downloaded,
                             liked = liked,
+                            playlists = playlists.map {
+                                PlaylistCard(
+                                    it.id,
+                                    it.name,
+                                    it.songs.firstOrNull()?.thumb,
+                                    it.songs.size
+                                )
+                            },
                             onPlay = { list, index -> playList(list, index) },
-                            onSeeAll = { profileSection = it },
+                            onSeeAll = {
+                                if (it == "playlist") {
+                                    mainTab = 1
+                                    tab = 3
+                                    openPlaylistId = null
+                                    searchActive = false
+                                    collection = null
+                                } else {
+                                    profileSection = it
+                                }
+                            },
+                            onOpenPlaylist = { id ->
+                                mainTab = 1
+                                tab = 3
+                                openPlaylistId = id
+                                searchActive = false
+                                collection = null
+                            },
                             onSettings = { showSettings = true }
                         )
                                         } else if (sec == "download") {
