@@ -101,7 +101,7 @@ object Downloads {
                 delay(200)
                 n++
             }
-            removeCache(key)
+                        removeCache(if (p.video) "video:" + p.song.url else p.song.url)
         }
     }
 
@@ -115,7 +115,7 @@ object Downloads {
 
     fun removeVideo(song: Song) {
         scope.launch {
-            removeCache("v:" + song.url)
+                        removeCache("video:" + song.url)
             _videos.value = _videos.value.filter { it.url != song.url }
             save()
         }
@@ -144,7 +144,7 @@ object Downloads {
                 val mode = if (video) "video" else "audio"
                 val b = DataSpec.Builder()
                     .setUri(Uri.parse("yt://resolve?m=" + mode + "&u=" + Uri.encode(song.url)))
-                if (video) b.setKey(key)
+                
 
                 val writer = CacheWriter(
                     AudioCache.downloadSource(),
