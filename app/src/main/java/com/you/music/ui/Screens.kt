@@ -293,6 +293,17 @@ fun MusicApp(
                             onSeeAll = { profileSection = it },
                             onSettings = { showSettings = true }
                         )
+                                        } else if (sec == "download") {
+                        DownloadScreen(
+                            songs = downloaded,
+                            videos = emptyList(),
+                            onBack = { profileSection = null },
+                            onPlaySong = { list, index -> playList(list, index) },
+                            onPlayVideo = { _, _ -> },
+                            onDeleteSong = { Downloads.remove(it) },
+                            onDeleteVideo = { },
+                            modifier = Modifier.weight(1f)
+                        )
                     } else {
                         val list = when (sec) {
                             "recent" -> recent
