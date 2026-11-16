@@ -174,6 +174,8 @@ fun MusicApp(
     val liked by Likes.liked.collectAsState()
     val playlists by Playlists.all.collectAsState()
     val recent by History.recent.collectAsState()
+        val videoDl by Downloads.videos.collectAsState()
+    val pendingDl by Downloads.pending.collectAsState()
 
     val openPlaylist = playlists.firstOrNull { it.id == openPlaylistId }
     val col = if (tab == 0 && !searchActive) collection else null
@@ -294,14 +296,18 @@ fun MusicApp(
                             onSettings = { showSettings = true }
                         )
                                         } else if (sec == "download") {
-                        DownloadScreen(
+                                                DownloadScreen(
                             songs = downloaded,
-                            videos = emptyList(),
+                            videos = videoDl,
+                            pending = pendingDl,
                             onBack = { profileSection = null },
                             onPlaySong = { list, index -> playList(list, index) },
                             onPlayVideo = { _, _ -> },
                             onDeleteSong = { Downloads.remove(it) },
-                            onDeleteVideo = { },
+                            onDeleteVideo = { Downloads.removeVideo(it) },
+                            onPause = { Downloads.pause(it) },
+                            onResume = { Downloads.resume(it) },
+                            onCancel = { Downloads.cancel(it) },
                             modifier = Modifier.weight(1f)
                         )
                     } else {
