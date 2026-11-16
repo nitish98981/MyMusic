@@ -158,6 +158,7 @@ fun MusicApp(
     var mode by remember { mutableStateOf(SearchMode.ALL) }
     var showPlayer by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+        var showWatch by remember { mutableStateOf(false) }
     var crash by remember { mutableStateOf(lastCrash) }
     var tab by remember { mutableStateOf(0) }
 
@@ -213,6 +214,7 @@ fun MusicApp(
     BackHandler(enabled = tab == 3 && openPlaylist != null && mainTab == 1) { openPlaylistId = null }
     BackHandler(enabled = searchActive && tab == 0 && mainTab == 1) { clearSearch() }
         BackHandler(enabled = mainTab == 2 && profileSection != null) { profileSection = null }
+            BackHandler(enabled = showWatch) { showWatch = false }
     BackHandler(enabled = showSettings) { showSettings = false }
     BackHandler(enabled = showPlayer) { showPlayer = false }
 
@@ -271,6 +273,7 @@ fun MusicApp(
        val playVideos: (List<Song>, Int) -> Unit = { list, index ->
         PlaybackMode.set(controller, true)
         playList(list, index)
+        showWatch = true
        }
     val isHome = tab == 0 && !searchActive && col == null
     val infoLine = state.error?.let { "Player error: $it" } ?: dlError ?: status
@@ -628,6 +631,26 @@ fun MusicApp(
         }
 
         // Overlay screens: pointerInput touch ko neeche wali list tak jaane se rokta hai
+        AnimatedVisibility(
+    visible = showWatch,
+    enter = slideInVertically { it },
+    exit = slideOutVertically { it }
+) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) { detectTapGestures { } }
+    ) {
+        WatchScreen(
+            state = state,
+            controller = controller,
+            downloadedVideos = videoDl,
+            pending = pendingDl,
+            onClose = { showWatch = false },
+            onDownload = { Downloads.downloadVideo(it) }
+        )
+    }
+}
         AnimatedVisibility(
             visible = showPlayer,
             enter = slideInVertically { it },
