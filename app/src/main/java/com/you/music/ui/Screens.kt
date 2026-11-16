@@ -65,6 +65,7 @@ import com.you.music.data.Downloads
 import com.you.music.data.History
 import com.you.music.data.Likes
 import com.you.music.data.MusicRepository
+import com.you.music.data.PlaybackMode
 import com.you.music.data.Playlists
 import com.you.music.data.SearchMode
 import com.you.music.data.Song
@@ -266,7 +267,11 @@ fun MusicApp(
     val toggle: () -> Unit = {
         controller?.let { if (it.isPlaying) it.pause() else it.play() }
     }
-
+    
+       val playVideos: (List<Song>, Int) -> Unit = { list, index ->
+        PlaybackMode.set(controller, true)
+        playList(list, index)
+       }
     val isHome = tab == 0 && !searchActive && col == null
     val infoLine = state.error?.let { "Player error: $it" } ?: dlError ?: status
     val currentPlaylistId = if (tab == 3) openPlaylist?.id else null
@@ -275,16 +280,16 @@ fun MusicApp(
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.weight(1f)) {
 
-                if (mainTab == 0) {
-                    // VIDEO tab: placeholder (Step 5 me banega)
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "Video tab - jaldi aayega",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                                } else if (mainTab == 2) {
+                                if (mainTab == 0) {
+                    VideoScreen(
+                        downloadedVideos = videoDl,
+                        pending = pendingDl,
+                        onPlay = { list, index -> playVideos(list, index) },
+                        onDownload = { Downloads.downloadVideo(it) },
+                        onSettings = { showSettings = true },
+                        modifier = Modifier.weight(1f)
+                    )
+                } else if (mainTab == 2) {
                     val sec = profileSection
                     if (sec == null) {
                         ProfileScreen(
@@ -302,7 +307,7 @@ fun MusicApp(
                             pending = pendingDl,
                             onBack = { profileSection = null },
                             onPlaySong = { list, index -> playList(list, index) },
-                            onPlayVideo = { _, _ -> },
+                            onPlayVideo = { list, index -> playVideos(list, index) },
                             onDeleteSong = { Downloads.remove(it) },
                             onDeleteVideo = { Downloads.removeVideo(it) },
                             onPause = { Downloads.pause(it) },
