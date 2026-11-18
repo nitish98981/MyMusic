@@ -10,6 +10,7 @@ import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
+import com.you.music.data.Downloads
 import com.you.music.data.PlaybackMode
 import com.you.music.data.VideoQuality
 
@@ -45,8 +46,9 @@ class YtMediaSourceFactory(
 
     override fun createMediaSource(mediaItem: MediaItem): MediaSource {
         val uri = mediaItem.localConfiguration?.uri
-        val quality = VideoQuality.get(context)
-
+                val uriU = uri?.getQueryParameter("u")
+        val downloadedQ = if (PlaybackMode.video.value && uriU != null) Downloads.videoQualityOf(uriU) else null
+        val quality = downloadedQ ?: VideoQuality.get(context)
         if (uri != null &&
             uri.scheme == "yt" &&
             uri.getQueryParameter("m") == null &&
