@@ -20,9 +20,10 @@ object AudioCache {
 
     private lateinit var app: Context
 
-    fun init(context: Context) {
+        fun init(context: Context) {
         app = context.applicationContext
-    }
+        DataSaver.init(app)
+        }
 
     private val db by lazy { StandaloneDatabaseProvider(app) }
 
