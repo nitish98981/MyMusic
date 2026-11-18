@@ -102,11 +102,14 @@ object MusicRepository {
 
     suspend fun audioUrl(videoUrl: String): String = withContext(Dispatchers.IO) {
         val info = StreamCache.info(videoUrl)
-        info.audioStreams
+                val audios = info.audioStreams
             .filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-            .maxByOrNull { it.averageBitrate }
-            ?.content
-            ?: error("Audio stream nahi mila")
+        val pick = if (DataSaver.enabled) {
+            audios.minByOrNull { if (it.averageBitrate > 0) it.averageBitrate else Int.MAX_VALUE }
+        } else {
+            audios.maxByOrNull { it.averageBitrate }
+        }
+        pick?.content ?: error("Audio stream nahi mila")
     }
 
     /** Video + audio wali ek file (zyada se zyada 720p), warna sabse chhoti available. "Auto" quality. */
@@ -115,7 +118,8 @@ object MusicRepository {
         val candidates = info.videoStreams.filter {
             !it.isVideoOnly && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP
         }
-        val pick = candidates.filter { it.height in 1..720 }.maxByOrNull { it.height }
+                val cap = if (DataSaver.enabled) 360 else 720
+        val pick = candidates.filter { it.height in 1..cap }.maxByOrNull { it.height }
             ?: candidates.minByOrNull { it.height }
         pick?.content ?: error("Video stream nahi mila")
     }
@@ -133,8 +137,9 @@ object MusicRepository {
         withContext(Dispatchers.IO) {
             val info = StreamCache.info(videoUrl)
             val pool = h264VideoOnly(info.videoOnlyStreams)
+                        val limit = if (DataSaver.enabled) minOf(maxHeight, 360) else maxHeight
             val pick = pool
-                .filter { it.height in 1..maxHeight }
+                .filter { it.height in 1..limit }
                 .maxWithOrNull(compareBy<VideoStream>({ it.height }, { it.bitrate }))
                 ?: pool.minByOrNull { it.height }
             pick?.content ?: error("HD video stream nahi mila")
