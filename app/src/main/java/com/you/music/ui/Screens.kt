@@ -149,7 +149,7 @@ fun MusicApp(
 
     // 0 = Video, 1 = Music, 2 = Profile
     var mainTab by remember { mutableIntStateOf(1) }
-        var profileSection by remember { mutableStateOf<String?>(null) }
+    var profileSection by remember { mutableStateOf<String?>(null) }
 
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<Song>>(emptyList()) }
@@ -158,7 +158,8 @@ fun MusicApp(
     var mode by remember { mutableStateOf(SearchMode.ALL) }
     var showPlayer by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
-        var showWatch by remember { mutableStateOf(false) }
+    var showWatch by remember { mutableStateOf(false) }
+    var qualityTarget by remember { mutableStateOf<Song?>(null) }
     var crash by remember { mutableStateOf(lastCrash) }
     var tab by remember { mutableStateOf(0) }
 
@@ -176,7 +177,7 @@ fun MusicApp(
     val liked by Likes.liked.collectAsState()
     val playlists by Playlists.all.collectAsState()
     val recent by History.recent.collectAsState()
-        val videoDl by Downloads.videos.collectAsState()
+    val videoDl by Downloads.videos.collectAsState()
     val pendingDl by Downloads.pending.collectAsState()
 
     val openPlaylist = playlists.firstOrNull { it.id == openPlaylistId }
@@ -213,8 +214,8 @@ fun MusicApp(
     BackHandler(enabled = col != null && mainTab == 1) { collection = null }
     BackHandler(enabled = tab == 3 && openPlaylist != null && mainTab == 1) { openPlaylistId = null }
     BackHandler(enabled = searchActive && tab == 0 && mainTab == 1) { clearSearch() }
-        BackHandler(enabled = mainTab == 2 && profileSection != null) { profileSection = null }
-            BackHandler(enabled = showWatch) { showWatch = false }
+    BackHandler(enabled = mainTab == 2 && profileSection != null) { profileSection = null }
+    BackHandler(enabled = showWatch) { showWatch = false }
     BackHandler(enabled = showSettings) { showSettings = false }
     BackHandler(enabled = showPlayer) { showPlayer = false }
 
@@ -269,12 +270,13 @@ fun MusicApp(
     val toggle: () -> Unit = {
         controller?.let { if (it.isPlaying) it.pause() else it.play() }
     }
-    
-       val playVideos: (List<Song>, Int) -> Unit = { list, index ->
+
+    val playVideos: (List<Song>, Int) -> Unit = { list, index ->
         PlaybackMode.set(controller, true)
         playList(list, index)
         showWatch = true
-       }
+    }
+
     val isHome = tab == 0 && !searchActive && col == null
     val infoLine = state.error?.let { "Player error: $it" } ?: dlError ?: status
     val currentPlaylistId = if (tab == 3) openPlaylist?.id else null
@@ -283,19 +285,19 @@ fun MusicApp(
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.weight(1f)) {
 
-                                if (mainTab == 0) {
+                if (mainTab == 0) {
                     VideoScreen(
                         downloadedVideos = videoDl,
                         pending = pendingDl,
                         onPlay = { list, index -> playVideos(list, index) },
-                        onDownload = { Downloads.downloadVideo(it) },
+                        onDownload = { qualityTarget = it },
                         onSettings = { showSettings = true },
                         modifier = Modifier.weight(1f)
                     )
                 } else if (mainTab == 2) {
                     val sec = profileSection
                     if (sec == null) {
-                                                ProfileScreen(
+                        ProfileScreen(
                             recent = recent,
                             downloaded = downloaded,
                             liked = liked,
@@ -308,15 +310,15 @@ fun MusicApp(
                                 )
                             },
                             onPlay = { list, index -> playList(list, index) },
-                            onSeeAll = {
-                                if (it == "playlist") {
+                            onSeeAll = { kind ->
+                                if (kind == "playlist") {
                                     mainTab = 1
                                     tab = 3
                                     openPlaylistId = null
                                     searchActive = false
                                     collection = null
                                 } else {
-                                    profileSection = it
+                                    profileSection = kind
                                 }
                             },
                             onOpenPlaylist = { id ->
@@ -328,8 +330,8 @@ fun MusicApp(
                             },
                             onSettings = { showSettings = true }
                         )
-                                        } else if (sec == "download") {
-                                                DownloadScreen(
+                    } else if (sec == "download") {
+                        DownloadScreen(
                             songs = downloaded,
                             videos = videoDl,
                             pending = pendingDl,
@@ -387,214 +389,214 @@ fun MusicApp(
                     }
                 } else {
 
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, top = 12.dp, end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(28.dp),
-                        placeholder = { Text("Search song") },
-                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                        trailingIcon = {
-                            if (query.isNotEmpty() || searchActive) {
-                                IconButton(onClick = clearSearch) {
-                                    Icon(Icons.Rounded.Close, contentDescription = "Clear")
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, top = 12.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(28.dp),
+                            placeholder = { Text("Search song") },
+                            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (query.isNotEmpty() || searchActive) {
+                                    IconButton(onClick = clearSearch) {
+                                        Icon(Icons.Rounded.Close, contentDescription = "Clear")
+                                    }
                                 }
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { doSearch() })
-                    )
-                    IconButton(onClick = { showSettings = true }) {
-                        Icon(Icons.Rounded.Settings, contentDescription = "Settings")
-                    }
-                }
-
-                val c = crash
-                if (c != null) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text(
-                            "Last crash (screenshot bhejo):",
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        SelectionContainer {
-                            Text(
-                                c.take(2500),
-                                Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 240.dp)
-                                    .verticalScroll(rememberScrollState()),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        Button(onClick = { crash = null }) { Text("Close") }
-                    }
-                }
-
-                Row(
-                    Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = tab == 0,
-                        onClick = {
-                            tab = 0
-                            searchActive = false
-                            collection = null
-                        },
-                        label = { Text("Home") }
-                    )
-                    FilterChip(
-                        selected = tab == 1,
-                        onClick = { tab = 1 },
-                        label = { Text("Offline ${downloaded.size}") }
-                    )
-                    FilterChip(
-                        selected = tab == 2,
-                        onClick = { tab = 2 },
-                        label = { Text("Liked ${liked.size}") }
-                    )
-                    FilterChip(
-                        selected = tab == 3,
-                        onClick = {
-                            tab = 3
-                            openPlaylistId = null
-                        },
-                        label = { Text("Playlists ${playlists.size}") }
-                    )
-                    FilterChip(
-                        selected = tab == 4,
-                        onClick = { tab = 4 },
-                        label = { Text("Recent") }
-                    )
-                }
-
-                if (isHome) {
-                    HomeScreen(
-                        onPlay = { list, index -> playList(list, index) },
-                        onOpenCollection = { title, songs -> collection = title to songs },
-                        modifier = Modifier.weight(1f)
-                    )
-                } else if (tab == 3 && openPlaylist == null) {
-                    Column(Modifier.weight(1f)) {
-                        OutlinedButton(
-                            onClick = { showImport = true },
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        ) { Text("Import from YouTube link") }
-                        PlaylistList(
-                            playlists = playlists,
-                            onOpen = { openPlaylistId = it },
-                            onNew = {
-                                createThenAdd = null
-                                showCreate = true
                             },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { doSearch() })
+                        )
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(Icons.Rounded.Settings, contentDescription = "Settings")
+                        }
+                    }
+
+                    val c = crash
+                    if (c != null) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text(
+                                "Last crash (screenshot bhejo):",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            SelectionContainer {
+                                Text(
+                                    c.take(2500),
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 240.dp)
+                                        .verticalScroll(rememberScrollState()),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            Button(onClick = { crash = null }) { Text("Close") }
+                        }
+                    }
+
+                    Row(
+                        Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = tab == 0,
+                            onClick = {
+                                tab = 0
+                                searchActive = false
+                                collection = null
+                            },
+                            label = { Text("Home") }
+                        )
+                        FilterChip(
+                            selected = tab == 1,
+                            onClick = { tab = 1 },
+                            label = { Text("Offline ${downloaded.size}") }
+                        )
+                        FilterChip(
+                            selected = tab == 2,
+                            onClick = { tab = 2 },
+                            label = { Text("Liked ${liked.size}") }
+                        )
+                        FilterChip(
+                            selected = tab == 3,
+                            onClick = {
+                                tab = 3
+                                openPlaylistId = null
+                            },
+                            label = { Text("Playlists ${playlists.size}") }
+                        )
+                        FilterChip(
+                            selected = tab == 4,
+                            onClick = { tab = 4 },
+                            label = { Text("Recent") }
+                        )
+                    }
+
+                    if (isHome) {
+                        HomeScreen(
+                            onPlay = { list, index -> playList(list, index) },
+                            onOpenCollection = { title, songs -> collection = title to songs },
                             modifier = Modifier.weight(1f)
                         )
-                    }
-                } else {
-                    if (searchActive && tab == 0) {
-                        Row(
-                            Modifier.padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf(
-                                SearchMode.ALL to "All",
-                                SearchMode.SONGS to "Songs",
-                                SearchMode.VIDEOS to "Videos"
-                            ).forEach { (m, label) ->
-                                FilterChip(
-                                    selected = mode == m,
-                                    onClick = {
-                                        mode = m
-                                        doSearch()
-                                    },
-                                    label = { Text(label) }
+                    } else if (tab == 3 && openPlaylist == null) {
+                        Column(Modifier.weight(1f)) {
+                            OutlinedButton(
+                                onClick = { showImport = true },
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            ) { Text("Import from YouTube link") }
+                            PlaylistList(
+                                playlists = playlists,
+                                onOpen = { openPlaylistId = it },
+                                onNew = {
+                                    createThenAdd = null
+                                    showCreate = true
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    } else {
+                        if (searchActive && tab == 0) {
+                            Row(
+                                Modifier.padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(
+                                    SearchMode.ALL to "All",
+                                    SearchMode.SONGS to "Songs",
+                                    SearchMode.VIDEOS to "Videos"
+                                ).forEach { (m, label) ->
+                                    FilterChip(
+                                        selected = mode == m,
+                                        onClick = {
+                                            mode = m
+                                            doSearch()
+                                        },
+                                        label = { Text(label) }
+                                    )
+                                }
+                            }
+                        }
+
+                        if (col != null) {
+                            CollectionHeader(
+                                name = col.first,
+                                onBack = { collection = null },
+                                onPlayAll = {
+                                    if (col.second.isNotEmpty()) playList(col.second, 0)
+                                }
+                            )
+                        }
+
+                        if (tab == 3 && openPlaylist != null) {
+                            PlaylistHeader(
+                                name = openPlaylist.name,
+                                onBack = { openPlaylistId = null },
+                                onPlayAll = {
+                                    if (openPlaylist.songs.isNotEmpty()) playList(openPlaylist.songs, 0)
+                                },
+                                onDelete = {
+                                    Playlists.delete(openPlaylist.id)
+                                    openPlaylistId = null
+                                }
+                            )
+                        }
+
+                        if (infoLine.isNotBlank()) {
+                            Text(
+                                infoLine,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        val emptyText = when {
+                            tab == 1 && downloaded.isEmpty() ->
+                                "Abhi koi download nahi. Gaane ke 3-dot menu se Download dabao."
+                            tab == 2 && liked.isEmpty() ->
+                                "Abhi koi liked gaana nahi. Player me ♥ dabao."
+                            tab == 3 && openPlaylist != null && openPlaylist.songs.isEmpty() ->
+                                "Ye playlist khali hai. Gaane ke 3-dot menu se Add to playlist karo."
+                            tab == 4 && recent.isEmpty() ->
+                                "Abhi kuch nahi suna. Jo gaana 5 second se zyada sunoge, yahan aayega."
+                            else -> null
+                        }
+                        if (emptyText != null) {
+                            Text(
+                                emptyText,
+                                modifier = Modifier.padding(16.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        LazyColumn(Modifier.weight(1f)) {
+                            itemsIndexed(shown) { index, song ->
+                                TrackItem(
+                                    song = song,
+                                    isDownloaded = downloaded.any { it.url == song.url },
+                                    progress = progressMap[song.url],
+                                    onClick = { playList(shown, index) },
+                                    onPlayNext = { playNext(song) },
+                                    onAddToQueue = { addToQueue(song) },
+                                    onDownloadToggle = { Downloads.toggle(song) },
+                                    isLiked = liked.any { it.url == song.url },
+                                    onLikeToggle = { Likes.toggle(song) },
+                                    onAddToPlaylist = { addTarget = song },
+                                    onRemove = currentPlaylistId?.let { pid ->
+                                        { Playlists.removeSong(pid, song.url) }
+                                    }
                                 )
                             }
                         }
                     }
-
-                    if (col != null) {
-                        CollectionHeader(
-                            name = col.first,
-                            onBack = { collection = null },
-                            onPlayAll = {
-                                if (col.second.isNotEmpty()) playList(col.second, 0)
-                            }
-                        )
-                    }
-
-                    if (tab == 3 && openPlaylist != null) {
-                        PlaylistHeader(
-                            name = openPlaylist.name,
-                            onBack = { openPlaylistId = null },
-                            onPlayAll = {
-                                if (openPlaylist.songs.isNotEmpty()) playList(openPlaylist.songs, 0)
-                            },
-                            onDelete = {
-                                Playlists.delete(openPlaylist.id)
-                                openPlaylistId = null
-                            }
-                        )
-                    }
-
-                    if (infoLine.isNotBlank()) {
-                        Text(
-                            infoLine,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    val emptyText = when {
-                        tab == 1 && downloaded.isEmpty() ->
-                            "Abhi koi download nahi. Gaane ke 3-dot menu se Download dabao."
-                        tab == 2 && liked.isEmpty() ->
-                            "Abhi koi liked gaana nahi. Player me ♥ dabao."
-                        tab == 3 && openPlaylist != null && openPlaylist.songs.isEmpty() ->
-                            "Ye playlist khali hai. Gaane ke 3-dot menu se Add to playlist karo."
-                        tab == 4 && recent.isEmpty() ->
-                            "Abhi kuch nahi suna. Jo gaana 5 second se zyada sunoge, yahan aayega."
-                        else -> null
-                    }
-                    if (emptyText != null) {
-                        Text(
-                            emptyText,
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    LazyColumn(Modifier.weight(1f)) {
-                        itemsIndexed(shown) { index, song ->
-                            TrackItem(
-                                song = song,
-                                isDownloaded = downloaded.any { it.url == song.url },
-                                progress = progressMap[song.url],
-                                onClick = { playList(shown, index) },
-                                onPlayNext = { playNext(song) },
-                                onAddToQueue = { addToQueue(song) },
-                                onDownloadToggle = { Downloads.toggle(song) },
-                                isLiked = liked.any { it.url == song.url },
-                                onLikeToggle = { Likes.toggle(song) },
-                                onAddToPlaylist = { addTarget = song },
-                                onRemove = currentPlaylistId?.let { pid ->
-                                    { Playlists.removeSong(pid, song.url) }
-                                }
-                            )
-                        }
-                    }
-                }
 
                 }
             }
@@ -632,25 +634,26 @@ fun MusicApp(
 
         // Overlay screens: pointerInput touch ko neeche wali list tak jaane se rokta hai
         AnimatedVisibility(
-    visible = showWatch,
-    enter = slideInVertically { it },
-    exit = slideOutVertically { it }
-) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) { detectTapGestures { } }
-    ) {
-        WatchScreen(
-            state = state,
-            controller = controller,
-            downloadedVideos = videoDl,
-            pending = pendingDl,
-            onClose = { showWatch = false },
-            onDownload = { Downloads.downloadVideo(it) }
-        )
-    }
-}
+            visible = showWatch,
+            enter = slideInVertically { it },
+            exit = slideOutVertically { it }
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) { detectTapGestures { } }
+            ) {
+                WatchScreen(
+                    state = state,
+                    controller = controller,
+                    downloadedVideos = videoDl,
+                    pending = pendingDl,
+                    onClose = { showWatch = false },
+                    onDownload = { qualityTarget = it }
+                )
+            }
+        }
+
         AnimatedVisibility(
             visible = showPlayer,
             enter = slideInVertically { it },
@@ -677,6 +680,18 @@ fun MusicApp(
             ) {
                 SettingsScreen(settings, themeManager, onClose = { showSettings = false })
             }
+        }
+
+        val qt = qualityTarget
+        if (qt != null) {
+            VideoQualityDialog(
+                song = qt,
+                onDismiss = { qualityTarget = null },
+                onPick = { q ->
+                    Downloads.downloadVideo(qt, q)
+                    qualityTarget = null
+                }
+            )
         }
 
         val target = addTarget
