@@ -18,12 +18,14 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InterruptedIOException
+import java.util.concurrent.ConcurrentHashMap
 
 data class Pending(
     val song: Song,
     val video: Boolean,
     val paused: Boolean,
-    val progress: Float
+    val progress: Float,
+    val quality: Int = 0
 )
 
 object Downloads {
@@ -51,6 +53,11 @@ object Downloads {
     private val writers = HashMap<String, CacheWriter>()
     private val running = HashSet<String>()
 
+    // Download kiye hue video ki quality: 0 = Auto (360p), warna 480/720/1080
+    private val videoQ = ConcurrentHashMap<String, Int>()
+
+    fun videoQualityOf(url: String): Int? = videoQ[url]
+
     private fun keyOf(song: Song, video: Boolean) = if (video) "v:" + song.url else song.url
     private fun keyOf(p: Pending) = keyOf(p.song, p.video)
     private fun findPending(key: String) = _pending.value.firstOrNull { keyOf(it) == key }
@@ -61,6 +68,7 @@ object Downloads {
         _downloads.value = loadSongs("list")
         _videos.value = loadSongs("videos")
         _pending.value = loadPending()
+        loadVideoQ()
     }
 
     fun toggle(song: Song) {
@@ -70,13 +78,14 @@ object Downloads {
     fun download(song: Song) {
         if (_downloads.value.any { it.url == song.url }) return
         _error.value = null
-        launchDownload(song, false)
+        launchDownload(song, false, 0)
     }
 
-    fun downloadVideo(song: Song) {
+    /** quality: 0 = Auto (360p ek file), warna HD height jaise 480, 720, 1080 */
+    fun downloadVideo(song: Song, quality: Int = 0) {
         if (_videos.value.any { it.url == song.url }) return
         _error.value = null
-        launchDownload(song, true)
+        launchDownload(song, true, quality)
     }
 
     fun pause(p: Pending) {
@@ -87,7 +96,7 @@ object Downloads {
 
     fun resume(p: Pending) {
         _error.value = null
-        launchDownload(p.song, p.video)
+        launchDownload(p.song, p.video, p.quality)
     }
 
     fun cancel(p: Pending) {
@@ -101,13 +110,23 @@ object Downloads {
                 delay(200)
                 n++
             }
-                        removeCache(if (p.video) "video:" + p.song.url else p.song.url)
+            if (!p.video) {
+                removeCache(p.song.url)
+            } else if (p.quality > 0) {
+                removeCache("vo:${p.quality}:${p.song.url}")
+                if (_downloads.value.none { it.url == p.song.url }) removeCache(p.song.url)
+            } else {
+                removeCache("video:" + p.song.url)
+            }
         }
     }
 
     fun remove(song: Song) {
         scope.launch {
-            removeCache(song.url)
+            // HD video ko offline chalne ke liye isi audio ki zaroorat hoti hai
+            val needsAudio = (videoQ[song.url] ?: 0) > 0 &&
+                _videos.value.any { it.url == song.url }
+            if (!needsAudio) removeCache(song.url)
             _downloads.value = _downloads.value.filter { it.url != song.url }
             save()
         }
@@ -115,7 +134,14 @@ object Downloads {
 
     fun removeVideo(song: Song) {
         scope.launch {
-                        removeCache("video:" + song.url)
+            val q = videoQ[song.url] ?: 0
+            if (q > 0) {
+                removeCache("vo:$q:${song.url}")
+                if (_downloads.value.none { it.url == song.url }) removeCache(song.url)
+            } else {
+                removeCache("video:" + song.url)
+            }
+            videoQ.remove(song.url)
             _videos.value = _videos.value.filter { it.url != song.url }
             save()
         }
@@ -129,48 +155,57 @@ object Downloads {
         }
     }
 
-    private fun launchDownload(song: Song, video: Boolean) {
+    private fun launchDownload(song: Song, video: Boolean, quality: Int) {
         val key = keyOf(song, video)
         synchronized(running) { if (!running.add(key)) return }
 
         val startP = findPending(key)?.progress ?: 0f
-        setPending(song, video, paused = false, progress = startP, save = true)
+        setPending(song, video, paused = false, progress = startP, save = true, quality = quality)
         _progress.update { it + (key to startP) }
         startService()
 
         scope.launch {
             var finished = false
             try {
-                val mode = if (video) "video" else "audio"
-                val b = DataSpec.Builder()
-                    .setUri(Uri.parse("yt://resolve?m=" + mode + "&u=" + Uri.encode(song.url)))
-                
+                val enc = Uri.encode(song.url)
+                val stages = when {
+                    !video -> listOf("yt://resolve?m=audio&u=$enc")
+                    quality > 0 -> listOf(
+                        "yt://resolve?m=vo&q=$quality&u=$enc",
+                        "yt://resolve?m=audio&u=$enc"
+                    )
+                    else -> listOf("yt://resolve?m=video&u=$enc")
+                }
 
-                val writer = CacheWriter(
-                    AudioCache.downloadSource(),
-                    b.build(),
-                    null,
-                    CacheWriter.ProgressListener { requestLength, bytesCached, _ ->
-                        if (requestLength > 0) {
-                            val p = (bytesCached.toFloat() / requestLength).coerceIn(0f, 1f)
-                            _progress.update { it + (key to p) }
-                            updateProgress(key, p)
+                for ((i, s) in stages.withIndex()) {
+                    val st = findPending(key)
+                    if (st == null || st.paused) throw InterruptedIOException()
+
+                    val start = if (i == 0) 0f else 0.92f
+                    val span = if (stages.size == 1) 1f else if (i == 0) 0.92f else 0.08f
+
+                    val writer = CacheWriter(
+                        AudioCache.downloadSource(),
+                        DataSpec.Builder().setUri(Uri.parse(s)).build(),
+                        null,
+                        CacheWriter.ProgressListener { requestLength, bytesCached, _ ->
+                            if (requestLength > 0) {
+                                val p = (start + span * (bytesCached.toFloat() / requestLength))
+                                    .coerceIn(0f, 1f)
+                                _progress.update { it + (key to p) }
+                                updateProgress(key, p)
+                            }
                         }
-                    }
-                )
-                synchronized(writers) { writers[key] = writer }
-
-                val st = findPending(key)
-                if (st == null || st.paused) throw InterruptedIOException()
-
-                writer.cache()
+                    )
+                    synchronized(writers) { writers[key] = writer }
+                    writer.cache()
+                }
                 finished = true
             } catch (e: Throwable) {
                 val st = findPending(key)
                 val quiet = st == null || st.paused
                 if (!quiet) {
                     _error.value = "Download error: ${e.javaClass.simpleName}: ${e.message}"
-                    // retry ke liye Continue dikhega
                     setPending(song, video, paused = true, progress = null, save = true)
                 }
             } finally {
@@ -181,6 +216,7 @@ object Downloads {
 
             if (finished) {
                 if (video) {
+                    videoQ[song.url] = quality
                     _videos.value = _videos.value.filter { it.url != song.url } + song
                 } else {
                     _downloads.value = _downloads.value.filter { it.url != song.url } + song
@@ -197,12 +233,19 @@ object Downloads {
         video: Boolean,
         paused: Boolean,
         progress: Float?,
-        save: Boolean
+        save: Boolean,
+        quality: Int? = null
     ) {
         val key = keyOf(song, video)
         _pending.update { list ->
             val old = list.firstOrNull { keyOf(it) == key }
-            val item = Pending(song, video, paused, progress ?: old?.progress ?: 0f)
+            val item = Pending(
+                song,
+                video,
+                paused,
+                progress ?: old?.progress ?: 0f,
+                quality ?: old?.quality ?: 0
+            )
             if (old == null) list + item
             else list.map { if (keyOf(it) == key) item else it }
         }
@@ -246,12 +289,20 @@ object Downloads {
         _downloads.value.forEach { a.put(songJson(it)) }
         val v = JSONArray()
         _videos.value.forEach { v.put(songJson(it)) }
-        prefs.edit().putString("list", a.toString()).putString("videos", v.toString()).apply()
+        val q = JSONObject()
+        videoQ.forEach { (k, value) -> q.put(k, value) }
+        prefs.edit()
+            .putString("list", a.toString())
+            .putString("videos", v.toString())
+            .putString("videoq", q.toString())
+            .apply()
     }
 
     private fun savePending() {
         val arr = JSONArray()
-        _pending.value.forEach { arr.put(songJson(it.song).put("video", it.video)) }
+        _pending.value.forEach {
+            arr.put(songJson(it.song).put("video", it.video).put("q", it.quality))
+        }
         prefs.edit().putString("pending", arr.toString()).apply()
     }
 
@@ -264,12 +315,22 @@ object Downloads {
         }
     }
 
+    private fun loadVideoQ() {
+        videoQ.clear()
+        try {
+            val o = JSONObject(prefs.getString("videoq", "{}"))
+            o.keys().forEach { k -> videoQ[k] = o.getInt(k) }
+        } catch (e: Throwable) {
+            // ignore
+        }
+    }
+
     private fun loadPending(): List<Pending> {
         return try {
             val arr = JSONArray(prefs.getString("pending", "[]"))
             (0 until arr.length()).map {
                 val o = arr.getJSONObject(it)
-                Pending(songFrom(o), o.optBoolean("video", false), true, 0f)
+                Pending(songFrom(o), o.optBoolean("video", false), true, 0f, o.optInt("q", 0))
             }
         } catch (e: Throwable) {
             emptyList()
