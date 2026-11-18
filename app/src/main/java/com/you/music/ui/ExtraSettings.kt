@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.you.music.data.AppLanguage
+import com.you.music.data.DataSaver
 import com.you.music.data.Lang
 import com.you.music.data.Prefs
 import com.you.music.playback.SleepTimer
@@ -36,6 +37,7 @@ import kotlinx.coroutines.delay
 fun ExtraSettings() {
     val ctx = LocalContext.current
     var volumeShortcut by remember { mutableStateOf(Prefs.volumeShortcut(ctx)) }
+        var dataSaver by remember { mutableStateOf(DataSaver.enabled) }
 
     LanguageSetting()
 
@@ -57,7 +59,24 @@ fun ExtraSettings() {
             }
         )
     }
-
+    Spacer(Modifier.size(24.dp))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Data saver", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Kam data: gaana aur video chhoti quality me chalenge (video 360p tak)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = dataSaver,
+            onCheckedChange = {
+                dataSaver = it
+                DataSaver.set(ctx, it)
+            }
+        )
+    }
     Spacer(Modifier.size(24.dp))
     SleepTimerSection()
 }
