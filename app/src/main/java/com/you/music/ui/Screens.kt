@@ -146,6 +146,7 @@ fun MusicApp(
 ) {
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
+        RestoreVideoOnReturn(controller)
 
     // 0 = Video, 1 = Music, 2 = Profile
     var mainTab by remember { mutableIntStateOf(1) }
