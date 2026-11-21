@@ -104,6 +104,11 @@ fun rememberPlayerState(controller: MediaController?): UiPlayerState {
             state.title = controller.mediaMetadata.title?.toString() ?: ""
             state.artist = controller.mediaMetadata.artist?.toString() ?: ""
             state.artwork = controller.mediaMetadata.artworkUri?.toString()
+                        com.you.music.data.Privacy.realOf(state.mediaId)?.let {
+                state.title = it.title
+                state.artist = it.artist
+                state.artwork = it.thumb
+                        }
             state.isPlaying = controller.isPlaying
             state.buffering = controller.playbackState == Player.STATE_BUFFERING
             state.shuffle = controller.shuffleModeEnabled
@@ -162,6 +167,10 @@ fun MusicApp(
     var showWatch by remember { mutableStateOf(false) }
     var qualityTarget by remember { mutableStateOf<Song?>(null) }
         var miniVideoOff by remember { mutableStateOf(false) }
+            var showPrivacy by remember { mutableStateOf(false) }
+    var showBrowser by remember { mutableStateOf(false) }
+    var browserQuery by remember { mutableStateOf("") }
+    BackHandler(enabled = showPrivacy) { showPrivacy = false }
     var crash by remember { mutableStateOf(lastCrash) }
     var tab by remember { mutableStateOf(0) }
 
@@ -200,7 +209,12 @@ fun MusicApp(
         if (state.mediaId.isNotEmpty()) {
             delay(5000)
             if (state.mediaId.isNotEmpty() && state.title.isNotEmpty()) {
-                History.add(Song(state.title, state.artist, state.mediaId, state.artwork))
+                                val played = Song(state.title, state.artist, state.mediaId, state.artwork)
+                if (com.you.music.data.Privacy.isActive()) {
+                    com.you.music.data.Privacy.logPlay(played, videoMode)
+                } else {
+                    History.add(played)
+                }
             }
         }
     }
@@ -299,6 +313,10 @@ fun MusicApp(
                         downloadedVideos = videoDl,
                         pending = pendingDl,
                         onPlay = { list, index -> playVideos(list, index) },
+                                                onBrowser = { q ->
+                            browserQuery = q
+                            showBrowser = true
+                        },
                         onDownload = { qualityTarget = it },
                         onSettings = { showSettings = true },
                         modifier = Modifier.weight(1f)
@@ -330,6 +348,7 @@ fun MusicApp(
                                     profileSection = kind
                                 }
                             },
+                                                        onPrivacy = { showPrivacy = true },
                             onOpenPlaylist = { id ->
                                 mainTab = 1
                                 tab = 3
@@ -411,7 +430,18 @@ fun MusicApp(
                             singleLine = true,
                             shape = RoundedCornerShape(28.dp),
                             placeholder = { Text("Search song") },
-                            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                                                        leadingIcon = {
+                                Icon(
+                                    Icons.Rounded.Search,
+                                    contentDescription = "Search",
+                                    modifier = Modifier.pointerInput(Unit) {
+                                        detectTapGestures(onDoubleTap = {
+                                            browserQuery = query
+                                            showBrowser = true
+                                        })
+                                    }
+                                )
+                            },
                             trailingIcon = {
                                 if (query.isNotEmpty() || searchActive) {
                                     IconButton(onClick = clearSearch) {
@@ -703,6 +733,43 @@ fun MusicApp(
             }
         }
 
+                if (showPrivacy) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) { detectTapGestures { } }
+            ) {
+                PrivacyScreen(
+                    controller = controller,
+                    onClose = { showPrivacy = false },
+                    onBrowser = {
+                        browserQuery = ""
+                        showBrowser = true
+                    },
+                    onPlay = { s, v ->
+                        if (v) {
+                            showPrivacy = false
+                            playVideos(listOf(s), 0)
+                        } else {
+                            playList(listOf(s), 0)
+                        }
+                    }
+                )
+            }
+        }
+
+        if (showBrowser) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) { detectTapGestures { } }
+            ) {
+                BrowserScreen(
+                    initialQuery = browserQuery,
+                    onClose = { showBrowser = false }
+                )
+            }
+        }
         val qt = qualityTarget
         if (qt != null) {
             VideoQualityDialog(
