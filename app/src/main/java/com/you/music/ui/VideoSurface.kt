@@ -1,5 +1,7 @@
 package com.you.music.ui
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.view.TextureView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -22,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,18 +34,69 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.session.MediaController
+import com.you.music.data.PlaybackMode
+
+tailrec fun Context.findLifecycleOwner(): LifecycleOwner? = when (this) {
+    is LifecycleOwner -> this
+    is ContextWrapper -> baseContext.findLifecycleOwner()
+    else -> null
+}
+
+/**
+ * App background / screen lock se wapas aane par agar pehle video mode tha
+ * to video mode wapas laata hai.
+ */
+@Composable
+fun RestoreVideoOnReturn(controller: MediaController?) {
+    val ctx = LocalContext.current
+    DisposableEffect(ctx, controller) {
+        val owner = ctx.findLifecycleOwner()
+        var wasVideo = false
+        val obs = LifecycleEventObserver { _, e ->
+            when (e) {
+                Lifecycle.Event.ON_PAUSE -> wasVideo = PlaybackMode.video.value
+                Lifecycle.Event.ON_START -> {
+                    if (wasVideo && !PlaybackMode.video.value) {
+                        PlaybackMode.set(controller, true)
+                    }
+                }
+                else -> {}
+            }
+        }
+        owner?.lifecycle?.addObserver(obs)
+        onDispose { owner?.lifecycle?.removeObserver(obs) }
+    }
+}
 
 /** Video dikhata hai, sahi aspect ratio ke saath (kheenchta nahi) */
 @Composable
 fun VideoSurface(controller: MediaController?, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
     var aspect by remember { mutableStateOf(16f / 9f) }
+    var gen by remember { mutableIntStateOf(0) }
     val tvRef = remember { arrayOfNulls<TextureView>(1) }
+
+    // App wapas khulne par naya TextureView banao, warna video black rehta hai
+    DisposableEffect(ctx) {
+        val owner = ctx.findLifecycleOwner()
+        var ready = false
+        val obs = LifecycleEventObserver { _, e ->
+            if (ready && e == Lifecycle.Event.ON_START) gen++
+        }
+        owner?.lifecycle?.addObserver(obs)
+        ready = true
+        onDispose { owner?.lifecycle?.removeObserver(obs) }
+    }
 
     DisposableEffect(controller) {
         if (controller == null) {
@@ -72,15 +127,17 @@ fun VideoSurface(controller: MediaController?, modifier: Modifier = Modifier) {
     }
 
     Box(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
-        AndroidView(
-            factory = { c ->
-                TextureView(c).also { tv ->
-                    tvRef[0] = tv
-                    controller?.setVideoTextureView(tv)
-                }
-            },
-            modifier = Modifier.aspectRatio(aspect)
-        )
+        key(gen) {
+            AndroidView(
+                factory = { c ->
+                    TextureView(c).also { tv ->
+                        tvRef[0] = tv
+                        controller?.setVideoTextureView(tv)
+                    }
+                },
+                modifier = Modifier.aspectRatio(aspect)
+            )
+        }
     }
 }
 
