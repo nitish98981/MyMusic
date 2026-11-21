@@ -30,6 +30,7 @@ import com.you.music.data.AppLanguage
 import com.you.music.data.DataSaver
 import com.you.music.data.Lang
 import com.you.music.data.Prefs
+import com.you.music.data.VideoLayout
 import com.you.music.playback.SleepTimer
 import kotlinx.coroutines.delay
 
@@ -37,9 +38,12 @@ import kotlinx.coroutines.delay
 fun ExtraSettings() {
     val ctx = LocalContext.current
     var volumeShortcut by remember { mutableStateOf(Prefs.volumeShortcut(ctx)) }
-        var dataSaver by remember { mutableStateOf(DataSaver.enabled) }
+    var dataSaver by remember { mutableStateOf(DataSaver.enabled) }
 
     LanguageSetting()
+
+    Spacer(Modifier.size(24.dp))
+    VideoLayoutSetting()
 
     Spacer(Modifier.size(24.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -59,6 +63,7 @@ fun ExtraSettings() {
             }
         )
     }
+
     Spacer(Modifier.size(24.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -77,6 +82,7 @@ fun ExtraSettings() {
             }
         )
     }
+
     Spacer(Modifier.size(24.dp))
     SleepTimerSection()
 }
@@ -101,6 +107,33 @@ private fun LanguageSetting() {
                 label = { Text(if (l == Lang.HINDI) "हिन्दी" else "English") }
             )
         }
+    }
+}
+
+@Composable
+private fun VideoLayoutSetting() {
+    val ctx = LocalContext.current
+    VideoLayout.init(ctx)
+    val big by VideoLayout.bigList.collectAsState()
+
+    Text("Video home layout", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "Video tab me videos kaise dikhein",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = big,
+            onClick = { VideoLayout.set(ctx, true) },
+            label = { Text("Bade cards") }
+        )
+        FilterChip(
+            selected = !big,
+            onClick = { VideoLayout.set(ctx, false) },
+            label = { Text("Grid (2 column)") }
+        )
     }
 }
 
