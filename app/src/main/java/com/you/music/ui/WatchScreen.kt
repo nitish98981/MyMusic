@@ -457,7 +457,7 @@ private fun PlaybackQualityDialog(
     LaunchedEffect(url) {
         heights = try {
             if (url.isEmpty()) emptyList()
-            else MusicRepository.videoHeights(url).filter { it in 240..1080 }
+            else MusicRepository.videoHeights(url).filter { it in 144..1080 }
         } catch (e: Throwable) {
             emptyList()
         }
