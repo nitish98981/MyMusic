@@ -27,6 +27,7 @@ import coil.compose.AsyncImage
 import com.you.music.data.Recommender
 import com.you.music.data.Song
 import com.you.music.data.toMediaItem
+import com.you.music.data.PlaybackMode
 
 @Composable
 fun RelatedSection(url: String, controller: MediaController?) {
@@ -64,6 +65,7 @@ fun RelatedSection(url: String, controller: MediaController?) {
                 .fillMaxWidth()
                 .clickable {
                     controller?.let { c ->
+                                                PlaybackMode.set(c, true)
                         c.setMediaItems(list.map { it.toMediaItem() }, i, 0L)
                         c.prepare()
                         c.play()
