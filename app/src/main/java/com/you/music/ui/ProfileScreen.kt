@@ -56,6 +56,8 @@ import coil.compose.AsyncImage
 import com.you.music.data.Follows
 import com.you.music.data.Song
 import java.io.File
+import androidx.compose.material3.OutlinedButton
+import com.you.music.data.Privacy
 
 data class PlaylistCard(val id: String, val name: String, val thumb: String?, val count: Int)
 
@@ -129,7 +131,8 @@ fun ProfileScreen(
     onPlay: (List<Song>, Int) -> Unit,
     onSeeAll: (String) -> Unit,
     onOpenPlaylist: (String) -> Unit,
-    onSettings: () -> Unit
+        onSettings: () -> Unit,
+    onPrivacy: () -> Unit = {}
 ) {
     val ctx = LocalContext.current
     ProfileStore.init(ctx)
@@ -183,7 +186,13 @@ fun ProfileScreen(
 
         Spacer(Modifier.height(8.dp))
 
-        SongRow("Recent", "recent", recent, "Abhi kuch nahi suna", onPlay, onSeeAll)
+                val privActive by Privacy.active.collectAsState()
+        OutlinedButton(
+            onClick = onPrivacy,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Text(if (privActive) "🔒 Privacy mode ON" else "🔒 Privacy mode")
+        }
         SongRow("Download", "download", downloaded, "Abhi koi download nahi", onPlay, onSeeAll)
         SongRow("Liked", "liked", liked, "Abhi koi liked gaana nahi", onPlay, onSeeAll)
 
