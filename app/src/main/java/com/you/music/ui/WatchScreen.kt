@@ -71,6 +71,8 @@ import com.you.music.data.PlaybackMode
 import com.you.music.data.Song
 import com.you.music.data.VideoQuality
 import com.you.music.data.channelOf
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.delay
 
 private fun fmt(ms: Long): String {
@@ -150,10 +152,11 @@ fun WatchScreen(
             modifier = Modifier.fillMaxSize()
         )
     } else {
-        Column(
+                Column(
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
+                .verticalScroll(rememberScrollState())
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) {
@@ -259,10 +262,12 @@ fun WatchScreen(
                     if (following) {
                         OutlinedButton(onClick = { Follows.toggle(ch) }) { Text("Following") }
                     } else {
-                        Button(onClick = { Follows.toggle(ch) }) { Text("Follow") }
+                                                Button(onClick = { Follows.toggle(ch) }) { Text("Follow") }
                     }
                 }
             }
+
+            RelatedSection(state.mediaId, controller)
         }
     }
 
