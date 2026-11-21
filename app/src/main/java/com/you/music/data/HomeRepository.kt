@@ -141,7 +141,14 @@ object HomeRepository {
         }
 
         val cfg = config(lang)
-        val a = async { safeSearch(recommendedQuery(cfg)) }
+                val a = async {
+            val rec = try {
+                Recommender.forYou(null, music = true, count = 10)
+            } catch (e: Throwable) {
+                emptyList()
+            }
+            if (rec.size >= 5) rec else safeSearch(recommendedQuery(cfg))
+                }
         val b = async { safeSearch(cfg.fresh) }
         val c = async { safeSearch(cfg.popular) }
         val d = async { safeSearch(cfg.hits) }
