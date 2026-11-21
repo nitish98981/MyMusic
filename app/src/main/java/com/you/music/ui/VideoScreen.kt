@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.you.music.data.MusicRepository
+import com.you.music.data.Recommender
 import com.you.music.data.Pending
 import com.you.music.data.SearchMode
 import com.you.music.data.Song
@@ -99,12 +100,7 @@ fun VideoScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (!VideoState.loaded) {
-            VideoState.loaded = true
-            run("trending music video")
-        }
-    }
+    
 
     Column(modifier.fillMaxSize()) {
         Row(
