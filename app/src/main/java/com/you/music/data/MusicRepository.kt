@@ -24,17 +24,21 @@ data class Song(
 enum class SearchMode { ALL, SONGS, VIDEOS }
 
 /** Queue me jaane wala item. Asli stream URL playback ke time resolve hota hai. */
-fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
-    .setMediaId(url)
-    .setUri(Uri.parse("yt://resolve?u=" + Uri.encode(url)))
-    .setMediaMetadata(
-        MediaMetadata.Builder()
-            .setTitle(title)
-            .setArtist(artist)
-            .setArtworkUri(thumb?.let { Uri.parse(it) })
-            .build()
-    )
-    .build()
+fun Song.toMediaItem(): MediaItem {
+    val masked = Privacy.isActive()
+    if (masked) Privacy.remember(this)
+    return MediaItem.Builder()
+        .setMediaId(url)
+        .setUri(Uri.parse("yt://resolve?u=" + Uri.encode(url)))
+        .setMediaMetadata(
+            MediaMetadata.Builder()
+                .setTitle(if (masked) "Privacy mode" else title)
+                .setArtist(if (masked) null else artist)
+                .setArtworkUri(if (masked) null else thumb?.let { Uri.parse(it) })
+                .build()
+        )
+        .build()
+}
 
 object MusicRepository {
 
