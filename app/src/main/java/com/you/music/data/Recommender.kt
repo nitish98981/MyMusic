@@ -19,7 +19,14 @@ object Recommender {
         val t = title.lowercase()
         return spam.any { t.contains(it) }
     }
-
+    
+        // Video recommendation me sirf gaane ka audio / lyric waale na aayein
+    private fun audioish(s: Song): Boolean {
+        val t = s.title.lowercase()
+        return s.artist.endsWith("- Topic") ||
+            t.contains("audio") || t.contains("lyric") || t.contains("jukebox") ||
+            t.contains("slowed") || t.contains("reverb") || t.contains("8d")
+    }
     private fun okDuration(sec: Long, min: Long, max: Long): Boolean =
         sec < 0 || sec in min..max
 
@@ -65,8 +72,8 @@ object Recommender {
      * music = true: gaane (1 se 10 min), false: videos (45 sec se 1 ghanta).
      * Kuch bhi history na ho to khali list aati hai.
      */
-    suspend fun forYou(ctx: Context, music: Boolean, count: Int = 30): List<Song> {
-        Follows.init(ctx)
+        suspend fun forYou(ctx: Context?, music: Boolean, count: Int = 30): List<Song> {
+        if (ctx != null) Follows.init(ctx)
 
         val liked = Likes.liked.value
         val downloaded = Downloads.downloads.value + Downloads.videos.value
@@ -119,6 +126,7 @@ object Recommender {
                 val ok = if (music) okDuration(c.seconds, 60, 600)
                 else okDuration(c.seconds, 45, 3600)
                 if (!ok || c.song.url in seen) return@forEachIndexed
+                                if (!music && audioish(c.song)) return@forEachIndexed
 
                 // list me upar wale zyada achhe hote hain
                 var s = w.toDouble() * (1.0 - rank / 40.0).coerceAtLeast(0.2)
