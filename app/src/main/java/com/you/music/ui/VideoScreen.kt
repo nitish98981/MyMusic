@@ -62,6 +62,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 /** Tab badalne par bhi sab kuch yahin bacha rehta hai */
 object VideoState {
@@ -121,6 +123,7 @@ fun VideoScreen(
     onPlay: (List<Song>, Int) -> Unit,
     onDownload: (Song) -> Unit,
     onSettings: () -> Unit,
+        onBrowser: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val ctx = LocalContext.current
@@ -194,7 +197,15 @@ fun VideoScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(28.dp),
                 placeholder = { Text("Search video") },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                                leadingIcon = {
+                    Icon(
+                        Icons.Rounded.Search,
+                        contentDescription = "Search",
+                        modifier = Modifier.pointerInput(Unit) {
+                            detectTapGestures(onDoubleTap = { onBrowser(VideoState.query) })
+                        }
+                    )
+                },
                 trailingIcon = {
                     if (VideoState.query.isNotEmpty() || VideoState.searchActive) {
                         IconButton(onClick = {
