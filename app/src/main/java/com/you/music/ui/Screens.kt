@@ -160,6 +160,7 @@ fun MusicApp(
     var showSettings by remember { mutableStateOf(false) }
     var showWatch by remember { mutableStateOf(false) }
     var qualityTarget by remember { mutableStateOf<Song?>(null) }
+        var miniVideoOff by remember { mutableStateOf(false) }
     var crash by remember { mutableStateOf(lastCrash) }
     var tab by remember { mutableStateOf(0) }
 
@@ -178,6 +179,7 @@ fun MusicApp(
     val playlists by Playlists.all.collectAsState()
     val recent by History.recent.collectAsState()
     val videoDl by Downloads.videos.collectAsState()
+        val videoMode by PlaybackMode.video.collectAsState()
     val pendingDl by Downloads.pending.collectAsState()
 
     val openPlaylist = playlists.firstOrNull { it.id == openPlaylistId }
@@ -237,12 +239,17 @@ fun MusicApp(
         }
     }
 
-    val playList: (List<Song>, Int) -> Unit = { list, index ->
+        val playRaw: (List<Song>, Int) -> Unit = { list, index ->
         controller?.let { c ->
             c.setMediaItems(list.map { it.toMediaItem() }, index, 0L)
             c.prepare()
             c.play()
         }
+    }
+
+    val playList: (List<Song>, Int) -> Unit = { list, index ->
+        PlaybackMode.set(controller, false)
+        playRaw(list, index)
     }
 
     val playNext: (Song) -> Unit = { song ->
@@ -271,11 +278,12 @@ fun MusicApp(
         controller?.let { if (it.isPlaying) it.pause() else it.play() }
     }
 
-    val playVideos: (List<Song>, Int) -> Unit = { list, index ->
+        val playVideos: (List<Song>, Int) -> Unit = { list, index ->
         PlaybackMode.set(controller, true)
-        playList(list, index)
+        playRaw(list, index)
+        miniVideoOff = false
         showWatch = true
-    }
+        }
 
     val isHome = tab == 0 && !searchActive && col == null
     val infoLine = state.error?.let { "Player error: $it" } ?: dlError ?: status
@@ -601,14 +609,26 @@ fun MusicApp(
                 }
             }
 
-            if (state.hasMedia) {
-                MiniPlayer(
-                    state = state,
-                    onOpen = { showPlayer = true },
-                    onToggle = toggle,
-                    onNext = { controller?.seekToNextMediaItem() }
-                )
-            }
+                        if (state.hasMedia) {
+                if (videoMode && !showWatch && !showPlayer && !miniVideoOff) {
+                    MiniVideoBar(
+                        state = state,
+                        controller = controller,
+                        onOpen = { showWatch = true },
+                        onClose = {
+                            controller?.pause()
+                            miniVideoOff = true
+                        }
+                    )
+                } else {
+                    MiniPlayer(
+                        state = state,
+                        onOpen = { showPlayer = true },
+                        onToggle = toggle,
+                        onNext = { controller?.seekToNextMediaItem() }
+                    )
+                }
+                        }
 
             NavigationBar {
                 NavigationBarItem(
