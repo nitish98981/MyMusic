@@ -75,18 +75,27 @@ object Downloads {
         if (_downloads.value.any { it.url == song.url }) remove(song) else download(song)
     }
 
-    fun download(song: Song) {
+        fun download(song: Song) {
+        if (Privacy.isActive()) {
+            _error.value = "Privacy mode me download abhi band hai"
+            return
+        }
         if (_downloads.value.any { it.url == song.url }) return
         _error.value = null
         launchDownload(song, false, 0)
-    }
+        }
 
     /** quality: 0 = Auto (360p ek file), warna HD height jaise 480, 720, 1080 */
-    fun downloadVideo(song: Song, quality: Int = 0) {
+        fun downloadVideo(song: Song, quality: Int = 0) {
+        if (Privacy.isActive()) {
+            _error.value = "Privacy mode me download abhi band hai"
+            return
+        }
         if (_videos.value.any { it.url == song.url }) return
         _error.value = null
         launchDownload(song, true, quality)
-    }
+        }
+        
 
     fun pause(p: Pending) {
         val key = keyOf(p)
