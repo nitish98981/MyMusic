@@ -148,8 +148,7 @@ object MusicRepository {
     /** Is video ke liye available HD heights, bade se chhote */
     suspend fun videoHeights(videoUrl: String): List<Int> = withContext(Dispatchers.IO) {
         val info = StreamCache.info(videoUrl)
-        h264VideoOnly(info.videoOnlyStreams)
-            .map { it.height }
+                (h264VideoOnly(info.videoOnlyStreams).map { it.height } + listOf(144, 240))
             .filter { it >= 144 }
             .distinct()
             .sortedDescending()
