@@ -190,6 +190,12 @@ fun MusicApp(
     val recent by History.recent.collectAsState()
     val videoDl by Downloads.videos.collectAsState()
         val videoMode by PlaybackMode.video.collectAsState()
+            var inPip by remember { mutableStateOf(false) }
+    PipEffect(
+        enabled = videoMode && state.hasMedia && state.isPlaying,
+        controller = controller,
+        onChanged = { inPip = it }
+    )
     val pendingDl by Downloads.pending.collectAsState()
 
     val openPlaylist = playlists.firstOrNull { it.id == openPlaylistId }
@@ -304,7 +310,9 @@ fun MusicApp(
     val infoLine = state.error?.let { "Player error: $it" } ?: dlError ?: status
     val currentPlaylistId = if (tab == 3) openPlaylist?.id else null
 
-    Box(Modifier.fillMaxSize()) {
+        if (inPip) {
+        VideoSurface(controller, Modifier.fillMaxSize())
+    } else Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.weight(1f)) {
 
