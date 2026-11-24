@@ -24,6 +24,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+            android:supportsPictureInPicture="true"
 
         <!-- YouTube ke Share menu me "Play in MyMusic" -->
         <activity-alias
